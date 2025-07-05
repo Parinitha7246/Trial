@@ -21,11 +21,21 @@ struct pollfd* fds = NULL;
 int client_count = 0;
 
 void create_fifo(const char *name) {
-    unlink(name);
+    unlink(name);  // Remove old pipe if it exists
     if (mkfifo(name, 0666) == -1 && errno != EEXIST) {
         perror("mkfifo");
         exit(EXIT_FAILURE);
     }
+}
+
+// Check if client name already exists and is active
+int is_duplicate_client(const char* client_id) {
+    for (int i = 0; i < client_count; i++) {
+        if (clients[i].active && strcmp(clients[i].id, client_id) == 0) {
+            return 1; // Duplicate found
+        }
+    }
+    return 0; // No duplicates
 }
 
 void broadcast(const char *msg, const char *sender_id) {
@@ -34,13 +44,6 @@ void broadcast(const char *msg, const char *sender_id) {
             write(clients[i].wfd, msg, strlen(msg));
         }
     }
-}
-
-int find_client_index_by_fd(int fd) {
-    for (int i = 0; i < client_count; i++) {
-        if (clients[i].active && clients[i].rfd == fd) return i;
-    }
-    return -1;
 }
 
 void add_client(const char* client_id) {
@@ -103,6 +106,12 @@ int main() {
             int bytes = read(reg_fd, client_id, sizeof(client_id) - 1);
             if (bytes > 0) {
                 client_id[bytes] = '\0';
+
+                if (is_duplicate_client(client_id)) {
+                    printf("[SERVER] Duplicate client name '%s'. Ignoring registration.\n", client_id);
+                    continue;
+                }
+
                 add_client(client_id);
             }
         }
