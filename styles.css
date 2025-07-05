@@ -4,3 +4,24 @@ h1{
     font-size: 40px;
     text-align: center;
 }
+p {
+    color: blue;
+    font-size: 20px;
+    text-align: center;
+}
+body {
+    background-color: lightgray;
+    font-family: Arial, sans-serif;
+}
+a {
+    color: green;
+    text-decoration: none;
+}
+a:hover {
+    text-decoration: underline;
+}
+/* This is a comment in CSS */
+ul {
+    list-style-type: square;
+    padding-left: 20px;
+}
