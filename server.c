@@ -6,6 +6,8 @@
 #include <sys/stat.h>
 #include <poll.h>
 #include <errno.h>
+#include <sys/types.h>
+#include <sys/stat.h>
 
 #define MAX_MSG 256
 #define BASE_FIFO_DIR "/tmp/chat_pipes"
@@ -20,6 +22,16 @@ struct Client {
 struct Client* clients = NULL;
 struct pollfd* fds = NULL;
 int client_count = 0;
+
+void ensure_dir_exists(const char *path) {
+    struct stat st = {0};
+    if (stat(path, &st) == -1) {
+        if (mkdir(path, 0777) == -1) {
+            perror("mkdir failed");
+            exit(EXIT_FAILURE);
+        }
+    }
+}
 
 // Create a FIFO at a specific path
 void create_fifo(const char *path) {
@@ -84,8 +96,8 @@ void add_client(const char* client_id) {
 }
 
 int main() {
-    // Step 1: Create the base directory if it doesn't exist
-    mkdir(BASE_FIFO_DIR, 0777);
+    // Step 1: Ensure the base directory exists
+    ensure_dir_exists(BASE_FIFO_DIR);
 
     // Step 2: Create and open the registration FIFO
     char reg_fifo_path[100];
@@ -98,7 +110,6 @@ int main() {
         exit(EXIT_FAILURE);
     }
 
-    // Step 3: Initialize poll structure
     fds = malloc(sizeof(struct pollfd));
     fds[0].fd = reg_fd;
     fds[0].events = POLLIN;
@@ -114,7 +125,7 @@ int main() {
             continue;
         }
 
-        // Step 4: Handle new registrations
+        // Step 3: Handle new registrations
         if (fds[0].revents & POLLIN) {
             char client_id[50];
             int bytes = read(reg_fd, client_id, sizeof(client_id) - 1);
@@ -130,7 +141,7 @@ int main() {
             }
         }
 
-        // Step 5: Handle messages from connected clients
+        // Step 4: Handle client messages
         for (int i = 0; i < client_count; i++) {
             if (clients[i].active && fds[i + 1].revents & POLLIN) {
                 int n = read(clients[i].rfd, buffer, MAX_MSG);
@@ -154,16 +165,34 @@ int main() {
 }
 
 
+/*
 
-/*#!/bin/bash
+create server.sh and paste this
+#!/bin/bash
 
-# Create the directory for FIFOs
-FIFO_DIR="/tmp/chat_pipes"
-mkdir -p "$FIFO_DIR"
+# Define pipe directory (optional)
+PIPE_DIR="/tmp/chat_pipes"
+mkdir -p $PIPE_DIR
+
+# Set path for registration FIFO
+REG_FIFO="$PIPE_DIR/registration_fifo"
+
+# Remove old registration FIFO
+if [ -p "$REG_FIFO" ]; then
+    echo "Removing old registration FIFO..."
+    rm "$REG_FIFO"
+fi
 
 # Compile the server
-gcc server.c -o server
+echo "Compiling server..."
+gcc -o server server.c
+
+# Export path so the server knows where to find FIFO
+export CHAT_PIPE_DIR="$PIPE_DIR"
 
 # Run the server
+echo "Starting server..."
 ./server
+
 */
+
